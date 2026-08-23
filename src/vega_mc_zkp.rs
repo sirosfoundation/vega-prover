@@ -1353,9 +1353,20 @@ pub struct VegaMcPrepZkSNARK<E: Engine> {
   ps_step: Vec<PrecommittedState<E>>,
   ps_core: PrecommittedState<E>,
   /// Cached partial matrix-vector products for shared+precommitted columns per step circuit (deterministic).
+  /// #[serde(skip)]: this cache is deterministically recomputable from
+  /// `ps_step`/`ps_core` (see `prove`'s own `.as_ref().map(...)` handling
+  /// of `None`, which was already written to tolerate a cold cache) and
+  /// dwarfs the rest of this struct's serialized size - skipping it here
+  /// keeps a (de)serialized `VegaMcPrepZkSNARK` viable to move across a
+  /// size-constrained boundary (e.g. a mobile FFI call), at the cost of
+  /// recomputing it once on the next `prove` after a round trip through
+  /// bytes. No effect on any value this type computes or proves.
+  #[serde(skip)]
   cached_step_matvec: Option<Vec<(Vec<E::Scalar>, Vec<E::Scalar>, Vec<E::Scalar>)>>,
   /// Small-value (i64) cache of Az/Bz/Cz for NIFS integer arithmetic.
   /// Large values are stored as 0 and corrected via field arithmetic using `large_positions`.
+  /// See `cached_step_matvec`'s doc comment above for why this is `#[serde(skip)]` too.
+  #[serde(skip)]
   cached_step_i64: Option<Vec<(Vec<i64>, Vec<i64>, Vec<i64>)>>,
   /// Positions where ANY instance's Az/Bz/Cz didn't fit i64 (union across all instances).
   /// i64 vectors are zeroed at these positions; correction uses field values.
