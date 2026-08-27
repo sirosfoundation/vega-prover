@@ -27,9 +27,10 @@ use rayon::prelude::*;
 use serde::{Deserialize, Serialize};
 use tracing::info;
 
-use crate::big_num::delayed_reduction::DelayedReduction;
-use crate::big_num::montgomery::MontgomeryLimbs;
-use crate::provider::msm::{AffineGroupElement, FixedBaseMul, vartime_scalar_mul};
+use crate::{
+  big_num::{delayed_reduction::DelayedReduction, montgomery::MontgomeryLimbs},
+  provider::msm::{AffineGroupElement, FixedBaseMul, vartime_scalar_mul},
+};
 
 /// Bind polynomial top variables using delayed reduction for Montgomery multiply.
 /// Avoids per-product REDC, reducing multiply cost by ~50%.

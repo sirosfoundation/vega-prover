@@ -7,8 +7,7 @@
 //! This module defines R1CS related types
 use crate::{
   Blind, Commitment, CommitmentKey, DEFAULT_COMMITMENT_WIDTH, PCS, VerifierKey,
-  big_num::DelayedReduction,
-  big_num::montgomery::MontgomeryLimbs,
+  big_num::{DelayedReduction, montgomery::MontgomeryLimbs},
   digest::SimpleDigestible,
   errors::VegaError,
   traits::{
@@ -25,9 +24,7 @@ use serde::{Deserialize, Serialize};
 
 mod folds;
 mod sparse;
-pub(crate) use sparse::FilteredSpmv;
-pub(crate) use sparse::PrecomputedSparseMatrix;
-pub(crate) use sparse::SparseMatrix;
+pub(crate) use sparse::{FilteredSpmv, PrecomputedSparseMatrix, SparseMatrix};
 
 /// Fused evaluation of three sparse matrices at (T_x, T_y).
 /// Processes all three matrices per row to improve T_y cache reuse.
@@ -1330,9 +1327,25 @@ impl<E: Engine> SplitR1CSShape<E> {
       Self::accumulate_rows(pa, pb, pc, rx, r, &r2, 0, num_rows, &mut poly_abc);
       poly_abc
     } else {
-      // Parallel path: per-thread accumulators + reduce
+      // Parallel path: per-thread accumulators + reduce.
+      //
+      // Each chunk allocates+zeroes its own full out_len-sized accumulator
+      // (one field element per output slot) before doing any row work, and
+      // that fixed cost must be amortized by real per-row work or more
+      // chunks just adds overhead without speeding anything up. Confirmed
+      // empirically on a real circuit (out_len ~1M, num_rows in the
+      // 130K-470K range): splitting into rayon::current_num_threads()
+      // (12) chunks unconditionally was ~3.7x SLOWER than not splitting at
+      // all, because each extra out_len-sized zeroed allocation costs more
+      // than the row-processing time it buys back at this scale. Cap the
+      // chunk count so each chunk covers a meaningful fraction of out_len
+      // in rows - i.e. don't split finer than there's real evidence of
+      // proportionate row-work to justify another out_len-sized
+      // allocation.
       use rayon::prelude::*;
-      let num_threads = rayon::current_num_threads();
+      let min_rows_per_chunk = (out_len / 4).max(1);
+      let num_threads =
+        rayon::current_num_threads().min(num_rows.div_ceil(min_rows_per_chunk).max(1));
       let chunk_size = num_rows.div_ceil(num_threads);
 
       (0..num_threads)

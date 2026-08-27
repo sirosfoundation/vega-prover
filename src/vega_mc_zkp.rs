@@ -5,7 +5,6 @@
 // Source repository: https://github.com/Microsoft/vega-prover
 
 //! Zero-knowledge multi-circuit (MC) prover using NeutronNova folding (https://eprint.iacr.org/2024/1606), proved with the single-circuit prover.
-use crate::start_span;
 use crate::{
   Commitment, CommitmentKey, DEFAULT_COMMITMENT_WIDTH, VerifierKey,
   bellpepper::{
@@ -32,6 +31,7 @@ use crate::{
     R1CSInstance, R1CSShape, R1CSWitness, RelaxedR1CSInstance, SplitMultiRoundR1CSInstance,
     SplitMultiRoundR1CSShape, SplitR1CSInstance, SplitR1CSShape, weights_from_r,
   },
+  start_span,
   sumcheck::SumcheckProof,
   traits::{
     Engine,
@@ -2663,8 +2663,7 @@ mod tests {
   #[test]
   #[ignore]
   fn export_transcript_vector() {
-    use crate::provider::traits::DlogGroup;
-    use crate::traits::transcript::TranscriptEngineTrait;
+    use crate::{provider::traits::DlogGroup, traits::transcript::TranscriptEngineTrait};
     use std::fs;
     type E = T256HyraxEngine;
 
