@@ -5,7 +5,6 @@
 // Source repository: https://github.com/Microsoft/vega-prover
 
 //! Support for generating R1CS using bellpepper.
-use crate::start_span;
 use crate::{
   Blind, Commitment, CommitmentKey, PCS, VerifierKey,
   bellpepper::{shape_cs::ShapeCS, solver::SatisfyingAssignment},
@@ -14,6 +13,7 @@ use crate::{
     R1CSWitness, SparseMatrix, SplitMultiRoundR1CSInstance, SplitMultiRoundR1CSShape,
     SplitR1CSInstance, SplitR1CSShape,
   },
+  start_span,
   traits::{
     Engine,
     circuit::{MultiRoundCircuit, VegaCircuit},

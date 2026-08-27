@@ -12,11 +12,12 @@
 //! The required `.bin` inputs are git-ignored; regenerate them with the exporters
 //! and the Python tests under `reference/tests/` first.
 
-use std::fs;
-use std::path::Path;
+use std::{fs, path::Path};
 
-use vega_prover::provider::T256HyraxEngine;
-use vega_prover::vega_mc_zkp::{VegaMcVerifierKey, VegaMcZkSNARK};
+use vega_prover::{
+  provider::T256HyraxEngine,
+  vega_mc_zkp::{VegaMcVerifierKey, VegaMcZkSNARK},
+};
 
 type E = T256HyraxEngine;
 

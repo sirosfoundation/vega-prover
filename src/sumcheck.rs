@@ -1581,9 +1581,11 @@ mod perf_tests {
 #[cfg(test)]
 mod verify_tests {
   use super::SumcheckProof;
-  use crate::polys::univariate::CompressedUniPoly;
-  use crate::provider::Bn254Engine;
-  use crate::traits::{Engine, transcript::TranscriptEngineTrait};
+  use crate::{
+    polys::univariate::CompressedUniPoly,
+    provider::Bn254Engine,
+    traits::{Engine, transcript::TranscriptEngineTrait},
+  };
   use ff::Field;
 
   // A round polynomial carrying no coefficients must be rejected during verification.

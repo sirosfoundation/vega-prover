@@ -14,8 +14,7 @@ use crate::{
   traits::Engine,
 };
 use ff::{Field, PrimeField};
-use halo2curves::CurveExt;
-use halo2curves::{CurveAffine, group::Group};
+use halo2curves::{CurveAffine, CurveExt, group::Group};
 use num_integer::Integer;
 use num_traits::{ToPrimitive, Zero};
 use rayon::{current_num_threads, prelude::*};

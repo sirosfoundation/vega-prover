@@ -7,8 +7,7 @@
 //! This module defines R1CS related types
 use crate::{
   Blind, Commitment, CommitmentKey, DEFAULT_COMMITMENT_WIDTH, PCS, VerifierKey,
-  big_num::DelayedReduction,
-  big_num::montgomery::MontgomeryLimbs,
+  big_num::{DelayedReduction, montgomery::MontgomeryLimbs},
   digest::SimpleDigestible,
   errors::VegaError,
   traits::{
@@ -25,9 +24,7 @@ use serde::{Deserialize, Serialize};
 
 mod folds;
 mod sparse;
-pub(crate) use sparse::FilteredSpmv;
-pub(crate) use sparse::PrecomputedSparseMatrix;
-pub(crate) use sparse::SparseMatrix;
+pub(crate) use sparse::{FilteredSpmv, PrecomputedSparseMatrix, SparseMatrix};
 
 /// Fused evaluation of three sparse matrices at (T_x, T_y).
 /// Processes all three matrices per row to improve T_y cache reuse.
@@ -1347,7 +1344,8 @@ impl<E: Engine> SplitR1CSShape<E> {
       // allocation.
       use rayon::prelude::*;
       let min_rows_per_chunk = (out_len / 4).max(1);
-      let num_threads = rayon::current_num_threads().min(num_rows.div_ceil(min_rows_per_chunk).max(1));
+      let num_threads =
+        rayon::current_num_threads().min(num_rows.div_ceil(min_rows_per_chunk).max(1));
       let chunk_size = num_rows.div_ceil(num_threads);
 
       (0..num_threads)
