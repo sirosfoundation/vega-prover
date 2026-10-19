@@ -1,3 +1,4 @@
+// SPDX-License-Identifier: MIT
 //! The one-hot selector of clause 5.3.
 //!
 //! A circuit's coefficients are fixed, so they cannot point at a different table entry for each

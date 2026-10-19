@@ -1,3 +1,4 @@
+// SPDX-License-Identifier: MIT
 //! Age verification and the nym_auth pseudonym for credentials such as the PID, proved with Vega.
 //!
 //! [`statement`] is the application-facing API of the nym_auth statement for mdoc credentials:

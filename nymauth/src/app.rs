@@ -1,3 +1,4 @@
+// SPDX-License-Identifier: MIT
 //! What the application does around the prover (clauses 4.3, 4.4 and 5.6).
 //!
 //! 1. Setup builds the keys from blank circuits, once per credential format.
@@ -146,6 +147,11 @@ pub fn setup_from_shapes_in(
   let (step, core): (StoredShape, StoredShape) = bincode::deserialize(bytes)
     .map_err(|e| VegaError::InternalError { reason: format!("reading the shapes: {e}") })?;
   for (circuit, s) in [("step", &step), ("core", &core)] {
+    s.validate().map_err(|reason| VegaError::InternalError {
+      reason: format!("the {circuit} shape is inconsistent: {reason}"),
+    })?;
+  }
+  for (circuit, s) in [("step", &step), ("core", &core)] {
     let values = s.num_shared + s.num_precommitted + s.num_rest;
     within_budget(circuit, s.num_cons, values, layout.budget)?;
   }
@@ -183,7 +189,62 @@ struct StoredShape {
   c: StoredMatrix,
 }
 
+impl StoredMatrix {
+  /// Whether the compressed rows are well formed for `rows` rows and `cols` columns: one pointer
+  /// per row and one more, non-decreasing from 0, ending at the number of entries, and every
+  /// column index below `cols`.
+  fn validate(&self, name: &str, rows: usize, cols: usize) -> Result<(), String> {
+    let entries = self.data.len();
+    if self.cols != cols {
+      return Err(format!("{name} has {} columns, not {cols}", self.cols));
+    }
+    if self.indices.len() != entries {
+      return Err(format!("{name} has {} indices for {entries} entries", self.indices.len()));
+    }
+    if self.indptr.len() != rows + 1 {
+      return Err(format!("{name} has {} row pointers, not {}", self.indptr.len(), rows + 1));
+    }
+    if self.indptr.first() != Some(&0) || self.indptr.last() != Some(&entries) {
+      return Err(format!("{name}'s row pointers do not span its entries"));
+    }
+    if self.indptr.windows(2).any(|w| w[0] > w[1]) {
+      return Err(format!("{name}'s row pointers decrease"));
+    }
+    if self.indices.iter().any(|&c| c >= cols) {
+      return Err(format!("{name} has a column index past its {cols} columns"));
+    }
+    Ok(())
+  }
+}
+
 impl StoredShape {
+  /// Whether the shape is consistent before anything is allocated from it: unpadded sizes within
+  /// the padded ones, and the three matrices well formed over the padded columns, the constant
+  /// one, and the challenges and public values.
+  fn validate(&self) -> Result<(), String> {
+    let pairs = [
+      ("constraints", self.num_cons_unpadded, self.num_cons),
+      ("shared values", self.num_shared_unpadded, self.num_shared),
+      ("precommitted values", self.num_precommitted_unpadded, self.num_precommitted),
+      ("rest values", self.num_rest_unpadded, self.num_rest),
+    ];
+    for (what, unpadded, padded) in pairs {
+      if unpadded > padded {
+        return Err(format!("{unpadded} unpadded {what} exceed {padded} padded"));
+      }
+    }
+    let cols = self
+      .num_shared
+      .checked_add(self.num_precommitted)
+      .and_then(|n| n.checked_add(self.num_rest))
+      .and_then(|n| n.checked_add(1 + self.num_challenges))
+      .and_then(|n| n.checked_add(self.num_public))
+      .ok_or("sizes overflow")?;
+    self.a.validate("A", self.num_cons, cols)?;
+    self.b.validate("B", self.num_cons, cols)?;
+    self.c.validate("C", self.num_cons, cols)
+  }
+
   /// The variable of a padded column: a segment's value, or an input (the constant one first).
   fn variable(&self, column: usize) -> Variable {
     let precommitted = self.num_shared;
@@ -466,10 +527,30 @@ impl ConstraintSystem<t256::Scalar> for Check {
 /// The values one segment of one circuit instance allocates, in the order of allocation: its
 /// private values, and the public values it allocates among them. The prover's witness generator
 /// keeps the two kinds in two lists, so their interleaving does not matter.
-#[derive(Clone, Debug, Default, PartialEq, Eq)]
+#[derive(Clone, Default, PartialEq, Eq)]
 pub struct Segment {
   pub private: Vec<t256::Scalar>,
   pub public: Vec<t256::Scalar>,
+}
+
+/// Overwrites field elements with zero, and keeps the compiler from dropping the writes.
+fn wipe(values: &mut [t256::Scalar]) {
+  values.iter_mut().for_each(|v| *v = t256::Scalar::ZERO);
+  std::hint::black_box(values);
+}
+
+impl Drop for Segment {
+  /// The private values include the holder's secret seed's bits: wiped when dropped (best effort).
+  fn drop(&mut self) {
+    wipe(&mut self.private);
+    wipe(&mut self.public);
+  }
+}
+
+impl std::fmt::Debug for Segment {
+  fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+    write!(f, "Segment({} private, {} public values, redacted)", self.private.len(), self.public.len())
+  }
 }
 
 impl Segment {
@@ -649,5 +730,18 @@ impl VegaCircuit<T256HyraxEngine> for Replay<'_> {
     _: Option<&[t256::Scalar]>,
   ) -> Result<(), SynthesisError> {
     self.instance.rest.replay(cs)
+  }
+}
+
+#[cfg(test)]
+mod tests {
+  use super::*;
+
+  /// `wipe` is what `Segment`'s drop uses on the values that hold the secret seed's bits.
+  #[test]
+  fn wipe_zeroes_field_elements() {
+    let mut values = vec![t256::Scalar::from(0xdead_beef_u64); 5];
+    wipe(&mut values);
+    assert!(values.iter().all(|v| *v == t256::Scalar::ZERO));
   }
 }

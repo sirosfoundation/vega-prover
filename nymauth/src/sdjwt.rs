@@ -1,3 +1,4 @@
+// SPDX-License-Identifier: MIT
 //! The core circuit for an SD-JWT VC (RFC 9901).
 //!
 //! The issuer signs a JWS (RFC 7515). Its signing input is the base64url-encoded header, a
@@ -251,7 +252,7 @@ impl SdJwtWitness {
     let [not_before_at, expiry_at] = TIMES.map(|time| find(&payload, time.key, "a time").ok());
     let scan =
       Scan { phase: payload_at % 4, absent: [not_before_at, expiry_at].map(|at| at.is_none()) };
-    let mut messages = vec![(layout.attribute, disclosure.to_vec())];
+    let mut messages = vec![(layout.attribute, zeroize::Zeroizing::new(disclosure.to_vec()))];
     let nym = match (nym, layout.pseudonym) {
       (Some(nym), Some(regions)) => {
         messages.extend(nym.table_messages(&regions));
@@ -271,9 +272,10 @@ impl SdJwtWitness {
     let messages: Vec<(Region, &[u8])> =
       messages.iter().map(|(region, bytes)| (*region, &bytes[..])).collect();
     Ok(SdJwtWitness {
-      table: Arc::new(Table {
-        scan: Some(scan),
-        ..Table::with_messages(layout, signing_input, skipped, &messages)?
+      table: Arc::new({
+        let mut table = Table::with_messages(layout, signing_input, skipped, &messages)?;
+        table.scan = Some(scan);
+        table
       }),
       issuer_key,
       issuer_signature,

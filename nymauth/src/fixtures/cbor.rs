@@ -1,3 +1,4 @@
+// SPDX-License-Identifier: MIT
 //! A minimal CBOR encoder and reader (RFC 8949). The encoder builds the test credentials. The
 //! reader takes real credentials apart.
 
@@ -109,9 +110,27 @@ pub struct Item<'a> {
   content: usize,
 }
 
+/// The deepest nesting of arrays, maps and tags the reader follows. A real `IssuerSigned` is at
+/// most about six deep; the cap keeps a hostile one from exhausting the stack.
+pub const MAX_DEPTH: usize = 32;
+
+/// The longest input the reader takes (1 MiB; a nym_auth `IssuerSigned` is about 1 KiB).
+pub const MAX_INPUT: usize = 1 << 20;
+
 impl<'a> Item<'a> {
-  /// The data item at the start of `bytes`.
+  /// The data item at the start of `bytes`. Refuses nesting past [`MAX_DEPTH`], input past
+  /// [`MAX_INPUT`], and lengths that do not fit the input.
   pub fn read(bytes: &'a [u8]) -> Result<Self, String> {
+    if bytes.len() > MAX_INPUT {
+      return Err(format!("{} bytes of CBOR, more than the {MAX_INPUT} allowed", bytes.len()));
+    }
+    Self::read_at(bytes, 0)
+  }
+
+  fn read_at(bytes: &'a [u8], depth: usize) -> Result<Self, String> {
+    if depth > MAX_DEPTH {
+      return Err(format!("CBOR nested deeper than {MAX_DEPTH}"));
+    }
     let initial = *bytes.first().ok_or("no data item")?;
     let (major, info) = (initial >> 5, initial & 31);
     let (argument, content) = match info {
@@ -124,7 +143,10 @@ impl<'a> Item<'a> {
       _ => return Err(format!("the head {initial:#04x}, which has no definite length")),
     };
     let end = match major {
-      2 | 3 => content + argument as usize,
+      2 | 3 => usize::try_from(argument)
+        .ok()
+        .and_then(|n| content.checked_add(n))
+        .ok_or("a string longer than the input")?,
       4..=6 => {
         let children = match major {
           4 => argument,
@@ -133,7 +155,7 @@ impl<'a> Item<'a> {
         };
         let mut end = content;
         for _ in 0..children {
-          end += Item::read(bytes.get(end..).ok_or("an item cut short")?)?.bytes.len();
+          end += Item::read_at(bytes.get(end..).ok_or("an item cut short")?, depth + 1)?.bytes.len();
         }
         end
       }
@@ -148,13 +170,22 @@ impl<'a> Item<'a> {
     &self.bytes[self.content..]
   }
 
+  /// [`Item::children`], or an error for an item that is not an array, a map or a tag.
+  pub fn try_children(&self) -> Result<Vec<Item<'a>>, String> {
+    if !(4..=6).contains(&self.major) {
+      return Err("not an array, a map or a tag".into());
+    }
+    Ok(self.children())
+  }
+
   /// The elements of an array, the keys and values of a map in turn, or the item a tag wraps.
+  /// Panics on another item; [`Item::try_children`] is the checked form.
   pub fn children(&self) -> Vec<Item<'a>> {
     assert!((4..=6).contains(&self.major), "only arrays, maps and tags have children");
     let mut children = Vec::new();
     let mut at = self.content;
     while at < self.bytes.len() {
-      let child = Item::read(&self.bytes[at..]).expect("read checked the children");
+      let child = Item::read_at(&self.bytes[at..], 0).expect("read checked the children");
       at += child.bytes.len();
       children.push(child);
     }
@@ -163,13 +194,13 @@ impl<'a> Item<'a> {
 
   /// Element `i` of an array.
   pub fn at(&self, i: usize) -> Result<Item<'a>, String> {
-    self.children().get(i).copied().ok_or_else(|| format!("no element {i}"))
+    self.try_children()?.get(i).copied().ok_or_else(|| format!("no element {i}"))
   }
 
   /// The value of the map entry whose key encodes as `key` does.
   pub fn get(&self, key: &Value) -> Result<Item<'a>, String> {
     let key = key.encode();
-    let children = self.children();
+    let children = self.try_children()?;
     let entry = children.chunks(2).find(|entry| entry[0].bytes == key);
     entry.map(|entry| entry[1]).ok_or_else(|| format!("no key {key:02x?}"))
   }

@@ -1,3 +1,4 @@
+// SPDX-License-Identifier: MIT
 //! The pseudonym of the full nym_auth statement: `pseudonym-v1-sha256` in its configuration
 //! `known-offender-matching-ssc` (the nym_auth rulebook, "Pseudonym generation function").
 //!
@@ -43,6 +44,7 @@
 //! ([`crate::app::accept_pseudonym`]): beyond the values the verifier names, the pseudonym is
 //! the one value the proof reveals.
 
+use zeroize::Zeroizing;
 use bellpepper_core::{ConstraintSystem, SynthesisError, num::AllocatedNum};
 use vega_prover::provider::pt256::t256;
 
@@ -113,21 +115,27 @@ pub fn claim_at(claim: &[u8]) -> Result<(usize, bool), String> {
 /// What the prover adds to the credential for the full statement: the `ssc` attribute (the
 /// mdoc's IssuerSignedItemBytes or the SD-JWT's disclosure), the holder's secret seed and the
 /// verifier's verifier_input.
-#[derive(Clone, Copy, Debug)]
+#[derive(Clone, Copy)]
 pub struct NymMessages<'a> {
   pub ssc: &'a [u8],
   pub secret_seed: &'a [u8; 16],
   pub verifier_input: &'a [u8; 32],
 }
 
+impl std::fmt::Debug for NymMessages<'_> {
+  fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+    write!(f, "NymMessages(redacted)")
+  }
+}
+
 impl NymMessages<'_> {
   /// The three messages the table holds besides the signed one and the birth date's attribute,
   /// in their regions: the `ssc` attribute, the secret seed and the pseudonym's message.
-  pub fn table_messages(&self, regions: &PseudonymRegions) -> [(Region, Vec<u8>); 3] {
+  pub fn table_messages(&self, regions: &PseudonymRegions) -> [(Region, Zeroizing<Vec<u8>>); 3] {
     [
-      (regions.ssc, self.ssc.to_vec()),
-      (regions.seed, self.secret_seed.to_vec()),
-      (regions.nym, message(self.secret_seed, self.verifier_input)),
+      (regions.ssc, Zeroizing::new(self.ssc.to_vec())),
+      (regions.seed, Zeroizing::new(self.secret_seed.to_vec())),
+      (regions.nym, Zeroizing::new(message(self.secret_seed, self.verifier_input))),
     ]
   }
 }

@@ -1,3 +1,4 @@
+// SPDX-License-Identifier: MIT
 //! Reading the bytes of a signed message at a private offset.
 //!
 //! The core circuit reads a value, such as the birth date, from where the issuer wrote it. The

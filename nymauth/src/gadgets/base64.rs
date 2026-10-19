@@ -1,3 +1,4 @@
+// SPDX-License-Identifier: MIT
 //! Base64url text inside the rules (RFC 4648, clause 5, without padding).
 //!
 //! An SD-JWT carries its JSON base64url-encoded. The JWS signing input holds the encoded header

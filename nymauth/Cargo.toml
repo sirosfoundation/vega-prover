@@ -4,6 +4,7 @@ version = "0.1.0"
 edition = "2024"
 description = "The nym_auth statement (age range and verifier-specific pseudonym) for mdoc credentials, proved with Vega"
 publish = false
+license = "MIT"
 
 [dependencies]
 # The prover of this repository: the crate is a sibling of the prover, not a member of a
@@ -25,6 +26,10 @@ bincode = "1.3"
 
 # Zeroes the copy of secret_seed the statement API makes.
 zeroize = "1"
+
+[features]
+# Carries the first broken rule of the circuit in `statement::Refusal::rule` (tests, debugging).
+debug-rules = []
 
 [dev-dependencies]
 serde_json = "1"

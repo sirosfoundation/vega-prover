@@ -1,3 +1,4 @@
+// SPDX-License-Identifier: MIT
 //! The core circuit for an ISO/IEC 18013-5 mdoc.
 //!
 //! The issuer signs the mobile security object (MSO) with COSE_Sign1 (RFC 9052). The signed
@@ -180,7 +181,7 @@ impl MdocWitness {
     }
     let skipped = blocks_before(*offsets.iter().min().expect("five offsets"));
     let offsets: Vec<usize> = offsets.iter().map(|at| at - 64 * skipped).collect();
-    let mut messages = vec![(layout.attribute, item.to_vec())];
+    let mut messages = vec![(layout.attribute, zeroize::Zeroizing::new(item.to_vec()))];
     let nym = match (nym, layout.pseudonym) {
       (Some(nym), Some(regions)) => {
         messages.extend(nym.table_messages(&regions));

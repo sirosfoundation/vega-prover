@@ -1,3 +1,4 @@
+// SPDX-License-Identifier: MIT
 //! The shared table (clauses 5.3 and 5.4).
 //!
 //! The table holds two signed messages as SHA-256 blocks, one block per position, and the hash
@@ -211,7 +212,9 @@ pub fn sha256(message: &[u8]) -> [u8; 32] {
 
 /// SHA-256 padding: a one bit, zeros, and the bit length as a 64-bit big-endian integer.
 pub fn pad(message: &[u8]) -> Vec<u8> {
-  let mut padded = message.to_vec();
+  // Exact capacity: a growing vector would leave copies of the message in freed buffers.
+  let mut padded = Vec::with_capacity((message.len() + 9).div_ceil(64) * 64);
+  padded.extend_from_slice(message);
   padded.push(0x80);
   while padded.len() % 64 != 56 {
     padded.push(0);
@@ -249,7 +252,7 @@ pub struct Scan {
 }
 
 /// The values of the shared table.
-#[derive(Clone, Debug, PartialEq, Eq)]
+#[derive(Clone, PartialEq, Eq)]
 pub struct Table {
   pub blocks: Vec<[u8; 64]>,
   /// The state after each block, as the 32 bytes of the digest it would give.
@@ -260,6 +263,23 @@ pub struct Table {
   pub scan: Option<Scan>,
   /// Where each message sits.
   pub layout: Layout,
+}
+
+impl Drop for Table {
+  /// The blocks hold the credential's attribute, the secret seed and the pseudonym's message:
+  /// wiped when dropped.
+  fn drop(&mut self) {
+    use zeroize::Zeroize;
+    self.blocks.zeroize();
+    self.states.zeroize();
+    self.start.zeroize();
+  }
+}
+
+impl std::fmt::Debug for Table {
+  fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+    write!(f, "Table({} blocks, redacted)", self.blocks.len())
+  }
 }
 
 impl Table {
@@ -282,9 +302,12 @@ impl Table {
     let mut start = IV;
     compress(&mut start, before);
     let mut blocks = vec![[0u8; 64]; POSITIONS];
-    let padded: Vec<(Region, Vec<u8>)> = std::iter::once((layout.signed, kept.to_vec()))
-      .chain(messages.iter().map(|(region, message)| (*region, pad(message))))
-      .collect();
+    let padded: Vec<(Region, zeroize::Zeroizing<Vec<u8>>)> =
+      std::iter::once((layout.signed, zeroize::Zeroizing::new(kept.to_vec())))
+        .chain(
+          messages.iter().map(|(region, message)| (*region, zeroize::Zeroizing::new(pad(message)))),
+        )
+        .collect();
     for (region, padded) in &padded {
       if padded.len() > 64 * region.blocks {
         return Err(format!(

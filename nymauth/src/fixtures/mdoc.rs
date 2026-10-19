@@ -1,3 +1,4 @@
+// SPDX-License-Identifier: MIT
 //! A test PID as an ISO/IEC 18013-5 mdoc.
 
 use super::cbor::{Value, int, record, tag, text};

@@ -1,3 +1,4 @@
+// SPDX-License-Identifier: MIT
 //! The step circuit (clauses 4.2 and 5.3): SHA-256 compressions at a public position.
 //!
 //! Every step instance has the same rules. The instance at position j reads block j, the state

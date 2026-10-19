@@ -1,3 +1,4 @@
+// SPDX-License-Identifier: MIT
 //! Range constraints, bytes and comparisons with constants (clause 5.2.3).
 //!
 //! Bit lists are most significant bit first throughout, which is the order of SHA-256, of

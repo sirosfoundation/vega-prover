@@ -1,3 +1,4 @@
+// SPDX-License-Identifier: MIT
 //! End to end over the reference credential (`tests/credential/`, from the nym_auth circuits
 //! archive): a real proof verifies, the pseudonym is the archive's, and every tampered input is
 //! refused. Keys and the one honest proof are built once.
@@ -8,7 +9,7 @@ use std::sync::OnceLock;
 use serde_json::Value as Json;
 use vega_nymauth::fixtures::cbor::Item;
 use vega_nymauth::gadgets::base64;
-use vega_nymauth::statement::{self, Error, Holder, Keys, Proved, Statement};
+use vega_nymauth::statement::{self, Error, Holder, Keys, Proved, RefusalCode, Statement};
 
 fn dir() -> PathBuf {
   PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("tests/credential")
@@ -134,7 +135,7 @@ fn assert_refused_by_verify(edit: impl FnOnce(&mut Inputs), what: &str) {
   edit(&mut t);
   let result = statement::verify(keys(), &t.statement(), &proved.proof);
   assert!(
-    matches!(result, Err(Error::Mismatch(_)) | Err(Error::ProofInvalid(_))),
+    matches!(result, Err(Error::Mismatch(_)) | Err(Error::ProofInvalid(_)) | Err(Error::Input(_))),
     "{what}: expected a refusal, got {result:?}"
   );
 }
@@ -143,6 +144,18 @@ fn assert_refused_by_verify(edit: impl FnOnce(&mut Inputs), what: &str) {
 fn verify_refuses_another_verifier_input() {
   let other = unhex("5ff3c35cfed806981de9ad610c4a7fe100867aee4530485aed3a0cc6e71f22b1");
   assert_refused_by_verify(|t| t.verifier_input = other, "verifier input");
+}
+
+#[test]
+fn verify_refuses_another_valid_issuer_key_as_a_mismatch() {
+  // A real P-256 point that is not the issuer's: the proof verifies for Q, not for this key.
+  let other = vega_nymauth::fixtures::KeyPair::from_label("another issuer").public;
+  let (i, proof) = honest();
+  let mut t = i.clone();
+  t.qx = other.x.to_vec();
+  t.qy = other.y.to_vec();
+  let r = statement::verify(keys(), &t.statement(), &proof.proof);
+  assert!(matches!(r, Err(Error::Mismatch(_))), "{r:?}");
 }
 
 #[test]
@@ -177,7 +190,7 @@ fn assert_cannot_prove(edit: impl FnOnce(&mut Inputs), what: &str) {
   let mut t = Inputs::load();
   edit(&mut t);
   match statement::prove(keys(), &t.statement(), &t.holder()) {
-    Err(Error::Witness(rule)) => eprintln!("{what}: refused: {rule}"),
+    Err(Error::Refused(_) | Error::Input(_)) => {}
     Err(e) => panic!("{what}: unexpected {e:?}"),
     Ok(p) => {
       let honest_statement = Inputs::load();
@@ -193,7 +206,16 @@ fn prove_with_the_wrong_seed_is_refused() {
   let mut t = Inputs::load();
   t.seed[0] ^= 1;
   let r = statement::prove(keys(), &t.statement(), &t.holder());
-  assert!(matches!(&r, Err(Error::Witness(m)) if m.contains("seed digest")), "{r:?}");
+  assert!(
+    matches!(&r, Err(Error::Refused(r)) if r.code == RefusalCode::SeedMismatch),
+    "{r:?}"
+  );
+  // The message to the caller names no rule.
+  let shown = format!("{} {:?}", r.as_ref().unwrap_err(), r.as_ref().unwrap_err());
+  #[cfg(not(feature = "debug-rules"))]
+  assert!(!shown.contains("digest half") && !shown.contains('/'), "{shown}");
+  #[cfg(feature = "debug-rules")]
+  assert!(shown.contains("seed digest"), "{shown}");
 }
 
 #[test]
@@ -239,7 +261,7 @@ fn malformed_inputs_are_typed_errors_not_panics() {
   let mut t = i.clone();
   t.cutoff = "20081007xx".into();
   assert!(matches!(statement::verify(keys(), &t.statement(), &[0; 8]), Err(Error::Input(_))));
-  assert!(matches!(Keys::from_shapes(&[1, 2, 3]), Err(Error::Shapes(_))));
-  assert!(matches!(Keys::from_shapes(&[]), Err(Error::Shapes(_))));
+  assert!(matches!(Keys::from_shapes(&[1, 2, 3]), Err(Error::UnknownCircuit(_))));
+  assert!(matches!(Keys::from_shapes(&[]), Err(Error::UnknownCircuit(_))));
   let _ = Item::read; // the CBOR reader is the one the statement uses
 }

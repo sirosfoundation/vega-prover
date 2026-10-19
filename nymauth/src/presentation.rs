@@ -1,3 +1,4 @@
+// SPDX-License-Identifier: MIT
 //! One presentation: the values the verifier names and the rules that use them.
 //!
 //! A core circuit splits its rules the way clause 5.4 splits the witness. The rules that depend

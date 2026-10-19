@@ -1,3 +1,4 @@
+// SPDX-License-Identifier: MIT
 //! Weighted sums of slots and the basic rules over them (clause 5.2).
 //!
 //! A rule of the circuit states that the product of two weighted sums equals a third one. An

@@ -1,3 +1,4 @@
+// SPDX-License-Identifier: MIT
 //! Rules shared by the circuits.
 //!
 //! | Module | Rules |

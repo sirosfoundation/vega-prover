@@ -1,3 +1,4 @@
+// SPDX-License-Identifier: MIT
 //! P-256 points and ECDSA verification inside the rules.
 //!
 //! The rules compute in the field of P-256 coordinates, so a point is two slots and each curve

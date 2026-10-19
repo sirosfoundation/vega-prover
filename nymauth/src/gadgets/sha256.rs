@@ -1,3 +1,4 @@
+// SPDX-License-Identifier: MIT
 //! The values of bellpepper's SHA-256 compression, computed natively.
 //!
 //! The step circuit checks each compression with bellpepper's `sha256_compression_function`

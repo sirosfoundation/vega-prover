@@ -1,3 +1,4 @@
+// SPDX-License-Identifier: MIT
 //! Test credentials, signed with test keys.
 //!
 //! The keys come from fixed labels, and each signature's nonce from the key and the message, so

@@ -1,3 +1,4 @@
+// SPDX-License-Identifier: MIT
 //! The request: the type of credential and the name of the birth-date attribute that the verifier
 //! asks for.
 //!

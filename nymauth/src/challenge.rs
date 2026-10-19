@@ -1,3 +1,4 @@
+// SPDX-License-Identifier: MIT
 //! The challenge the device key signs, as the nym_auth statement requires it.
 //!
 //! The rules verify the device key's ECDSA signature on a 256-bit digest that the verifier names

@@ -1,3 +1,4 @@
+// SPDX-License-Identifier: MIT
 //! A circuit's values in the order a witness generator records them, computed natively.
 //!
 //! The prover takes the values of a circuit from its witness generator, `SatisfyingAssignment`,

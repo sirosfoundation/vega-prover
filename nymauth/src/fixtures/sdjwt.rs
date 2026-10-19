@@ -1,3 +1,4 @@
+// SPDX-License-Identifier: MIT
 //! A test PID as an SD-JWT VC.
 
 use super::{EcdsaSignature, ISSUED, KeyPair, point_with_x, salt};
