@@ -1,0 +1,36 @@
+[package]
+name = "vega-nymauth"
+version = "0.1.0"
+edition = "2024"
+description = "The nym_auth statement (age range and verifier-specific pseudonym) for mdoc credentials, proved with Vega"
+publish = false
+
+[dependencies]
+# The prover of this repository: the crate is a sibling of the prover, not a member of a
+# workspace, so the root manifest and the prover's sources stay untouched.
+vega-prover = { path = ".." }
+bellpepper-core = "0.4.0"
+bellpepper = "0.4.0"
+ff = "0.13.0"
+group = "0.13.0"
+halo2curves = "0.10.0"
+sha2 = { version = "0.10.7", features = ["compress"] }
+# The witness synthesizes the step instances in parallel, on the prover's thread pool (app.rs).
+rayon = "1.12"
+# The keys, the prepared state and the proof are newtypes, serialized as the prover serializes
+# what they wrap.
+serde = { version = "1.0", features = ["derive"] }
+# The prover's serialization, in which the circuits as data are stored and read (app::shapes).
+bincode = "1.3"
+
+# Zeroes the copy of secret_seed the statement API makes.
+zeroize = "1"
+
+[dev-dependencies]
+serde_json = "1"
+# The archive stores the shapes zstd-compressed (tests only).
+zstd = "0.13"
+
+# `unsafe_code` is forbidden for every target of this package.
+[lints.rust]
+unsafe_code = "forbid"
